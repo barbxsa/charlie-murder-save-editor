@@ -103,7 +103,8 @@ export const es: Messages = {
     download: "Descargar partida editada",
   },
   footer: {
+    madeBy: "Hecho por {author}",
     disclaimer: "Herramienta hecha por fans. Sin relación con Ska Studios ni Microsoft.",
-    source: "Código fuente",
+    source: "Código fuente en GitHub",
   },
 };

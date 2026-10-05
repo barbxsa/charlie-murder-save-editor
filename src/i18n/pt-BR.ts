@@ -102,7 +102,8 @@ export const ptBR: Messages = {
     download: "Baixar save editado",
   },
   footer: {
+    madeBy: "Feito por {author}",
     disclaimer: "Ferramenta feita por fãs. Sem vínculo com a Ska Studios ou a Microsoft.",
-    source: "Código-fonte",
+    source: "Código-fonte no GitHub",
   },
 };

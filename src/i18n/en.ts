@@ -106,8 +106,9 @@ export const en = {
     download: "Download edited save",
   },
   footer: {
+    madeBy: "Made by {author}",
     disclaimer: "Fan-made tool. Not affiliated with or endorsed by Ska Studios or Microsoft.",
-    source: "Source code",
+    source: "Source code on GitHub",
   },
 } as const;
 

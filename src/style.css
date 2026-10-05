@@ -1025,6 +1025,18 @@ button {
 
 .site-foot a {
   color: var(--chalk);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.site-foot a:hover {
+  color: var(--highlight);
+}
+
+.site-foot .disclaimer {
+  flex-basis: 100%;
+  font-size: 14px;
+  opacity: 0.8;
 }
 
 @media (prefers-reduced-motion: reduce) {

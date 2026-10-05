@@ -19,10 +19,10 @@ import {
   type SaveFile,
 } from "./save/format";
 import { icons, star } from "./ui/icons";
+import { AUTHOR_NAME, AUTHOR_URL, REPO_URL } from "./config";
 import { fmt, formatNumber, getLocale, initLocale, LOCALES, m, onLocaleChange, setLocale, type Locale } from "./i18n";
 
 const SAVE_PATH = "%APPDATA%\\CharlieMurder\\game.sav";
-const REPO_URL: string | undefined = import.meta.env.VITE_REPO_URL;
 
 type Note =
   | { kind: "boosted" }
@@ -302,8 +302,12 @@ function noteText(note: Note): string {
 
 function footer(): string {
   const t = m();
-  const link = REPO_URL ? `<a href="${esc(REPO_URL)}" target="_blank" rel="noopener">${esc(t.footer.source)}</a>` : "";
-  return `<footer class="site-foot"><span>${esc(t.footer.disclaimer)}</span>${link}</footer>`;
+  const author = `<a href="${esc(AUTHOR_URL)}" target="_blank" rel="noopener">@${esc(AUTHOR_NAME)}</a>`;
+  return `<footer class="site-foot">
+    <span>${fmt(esc(t.footer.madeBy), { author })}</span>
+    <a href="${esc(REPO_URL)}" target="_blank" rel="noopener">${esc(t.footer.source)}</a>
+    <span class="disclaimer">${esc(t.footer.disclaimer)}</span>
+  </footer>`;
 }
 
 function render(): void {
