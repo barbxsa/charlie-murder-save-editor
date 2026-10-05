@@ -8,4 +8,5 @@ dist/
 # Never commit real save files (they contain your Steam name)
 *.sav
 *.sav.*
+!docs/demo/game.sav
 tests/fixtures/real/
