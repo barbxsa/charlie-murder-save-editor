@@ -34,7 +34,7 @@ export type ItemSpec = ClothingSpec | FoodSpec | RelicSpec | MiscSpec;
 
 export interface CharSpec {
   items?: ItemSpec[]; stats?: [number, number, number, number]; equipped?: [number, number, number, number];
-  cash?: number; followers?: number; levelPoints?: number; skillPoints?: number; flags?: string[]; maps?: string[]; emails?: number;
+  cash?: number; followers?: number; tattoos?: boolean[]; unlocks?: number[]; levelPoints?: number; skillPoints?: number; flags?: string[]; maps?: string[]; emails?: number;
 }
 
 export function writeSave(profile: string, chars: Record<number, CharSpec> = {}, achievementBytes = 64): Uint8Array {
@@ -64,16 +64,22 @@ export function writeSave(profile: string, chars: Record<number, CharSpec> = {},
         w.i32(4).i32(it.count ?? 1).i32(it.defId).i32(0);
       }
     }
-    for (let k = 0; k < 7; k++) w.bool(false);
-    for (let k = 0; k < 6; k++) w.i32(-1);
-    for (let k = 0; k < 9; k++) w.i32(-1);
+    // Fresh-character defaults as the game writes them (CharStats.ClearTattoos).
+    const tat = c.tattoos ?? [];
+    for (let k = 0; k < 7; k++) w.bool(Boolean(tat[k]));
+    [0, -1, -1, -1, 0, 8].forEach((v) => w.i32(v));
+    const magic = [0, -1, -1, -1, -1, -1, -1, -1, 8];
+    tat.forEach((on, k) => {
+      if (on) magic[magic.indexOf(-1)] = k + 1;
+    });
+    magic.forEach((v) => w.i32(v));
     const st = c.stats ?? [0, 0, 0, 0];
     st.forEach((v) => w.i32(v)); w.i32(0).i32(0);
     (c.equipped ?? [-1, -1, -1, -1]).forEach((v) => w.i32(v));
     for (let k = 0; k < 4; k++) w.bool(true);
     for (let k = 0; k < 100; k++) w.bool(false).i32(0);
     w.f32(300).str("sanestats");
-    for (let k = 0; k < 32; k++) w.bool(false);
+    for (let k = 0; k < 32; k++) w.bool((c.unlocks ?? [3]).includes(k));
     w.i32(c.skillPoints ?? 0);
     const flags = c.flags ?? []; w.i32(flags.length); flags.forEach((f) => w.str(f));
     const maps = c.maps ?? []; w.i32(maps.length); maps.forEach((f) => w.str(f));

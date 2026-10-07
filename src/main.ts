@@ -7,6 +7,9 @@ import {
   buildSave,
   characterFields,
   coerce,
+  countChanges,
+  setTattoo,
+  UNLOCK_SLOTS,
   isChanged,
   itemFields,
   parseSave,
@@ -25,6 +28,7 @@ import { AUTHOR_NAME, AUTHOR_URL, REPO_URL } from "./config";
 import { fmt, formatNumber, getLocale, initLocale, LOCALES, m, onLocaleChange, plural, setLocale, type Locale } from "./i18n";
 import { collectChanges, itemName } from "./ui/changes";
 import { ITEM_TEXT } from "./data/items";
+import { SKILL_TEXT } from "./data/skills";
 
 const SAVE_PATH = "%APPDATA%\\CharlieMurder\\game.sav";
 
@@ -46,9 +50,11 @@ interface State {
   review: boolean;
   /** Also download the untouched original as game.sav.bak. */
   backup: boolean;
+  /** Characters whose skill list is expanded. */
+  openSkills: Set<number>;
 }
 
-const state: State = { save: null, fileName: "game.sav", current: 0, showAll: false, error: null, note: null, confirmOther: false, review: false, backup: true };
+const state: State = { save: null, fileName: "game.sav", current: 0, showAll: false, error: null, note: null, confirmOther: false, review: false, backup: true, openSkills: new Set() };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const fieldRegistry = new Map<string, { field: Field; min: number; max: number }>();
@@ -250,6 +256,40 @@ function miniCard(it: RelicItem | MiscItem): string {
   </article>`;
 }
 
+function toggle(attr: string, on: boolean, changed: boolean, title: string, sub: string, tip: string): string {
+  return `<button type="button" class="tog${on ? " on" : ""}${changed ? " changed" : ""}" ${attr} aria-pressed="${on}" title="${esc(tip)}">
+    <span class="tog-box" aria-hidden="true">${on ? icons.check : ""}</span>
+    <span class="tog-text"><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>
+  </button>`;
+}
+
+function skillsView(c: RosterCharacter): string {
+  const t = m();
+  const loc = getLocale();
+  const spells = SKILL_TEXT[loc].spells[c.index] ?? [];
+  const skills = SKILL_TEXT[loc].unlocks[c.index % 5] ?? [];
+  const tattoos = c.tattoos
+    .map((f, k) => toggle(`data-tattoo="${k}"`, f.value === 1, isChanged(f), spells[k + 1]?.name ?? "", fmt(t.skills.tattoo, { n: k + 1 }), spells[k + 1]?.desc ?? ""))
+    .join("");
+  const onCount = UNLOCK_SLOTS.filter((u) => c.unlocks[u].value === 1).length;
+  const unlocks = UNLOCK_SLOTS.map((u) =>
+    toggle(`data-unlock="${u}"`, c.unlocks[u].value === 1, isChanged(c.unlocks[u]), skills[u]?.name ?? `#${u}`, "", skills[u]?.desc ?? ""),
+  ).join("");
+  const open = state.openSkills.has(c.index) ? " open" : "";
+  return `<div class="section-title"><h2>${esc(t.skills.tattoos)}</h2><span class="c">${esc(fmt(t.skills.count, { on: c.tattoos.filter((f) => f.value === 1).length, total: 7 }))}</span></div>
+    <p class="note">${esc(t.skills.tattoosHint)} ${esc(fmt(t.skills.baseSpell, { name: spells[0]?.name ?? "" }))}</p>
+    <div class="togs">${tattoos}</div>
+    <details class="skills" data-skills="${c.index}"${open}>
+      <summary><h2>${esc(t.skills.unlocks)}</h2><span class="c">${esc(fmt(t.skills.count, { on: onCount, total: UNLOCK_SLOTS.length }))}</span></summary>
+      <p class="note">${esc(t.skills.unlocksHint)}</p>
+      <div class="actions skills-actions">
+        ${bubble({ id: "unlock-all", color: "yellow", icon: icons.boost, label: t.skills.all, small: true })}
+        ${bubble({ id: "unlock-none", color: "red", icon: icons.discard, label: t.skills.none, small: true })}
+      </div>
+      <div class="togs">${unlocks}</div>
+    </details>`;
+}
+
 function characterView(c: RosterCharacter): string {
   const t = m();
   const clothes = c.items
@@ -276,6 +316,7 @@ function characterView(c: RosterCharacter): string {
     </div>
   </div>`;
 
+  html += skillsView(c);
   html += `<div class="section-title"><h2>${esc(t.items.clothes)}</h2><span class="c">${esc(plural(t.items.count, clothes.length))}</span></div>`;
   html += clothes.length
     ? `<div class="items">${clothes.map((it) => clothingCard(it, c)).join("")}</div>`
@@ -299,7 +340,7 @@ function characterView(c: RosterCharacter): string {
 function bar(): string {
   if (!state.save) return "";
   const t = m();
-  const n = state.save.fields.filter(isChanged).length;
+  const n = countChanges(state.save);
   const msg = state.note ? noteText(state.note) : n ? plural(t.bar.some, n) : t.bar.none;
   return `<div class="bar">
     <span class="msg" role="status">${esc(msg)}</span>
@@ -312,7 +353,7 @@ function bar(): string {
 function reviewView(save: SaveFile): string {
   const t = m();
   const groups = collectChanges(save, t, getLocale());
-  const total = save.fields.filter(isChanged).length;
+  const total = groups.reduce((n, cc) => n + cc.groups.reduce((m2, g) => m2 + g.lines.length, 0), 0);
   const body = groups
     .map(
       (cc) => `<section class="rv-char" style="--char:${charColor(cc.character)}">
@@ -508,6 +549,28 @@ app.addEventListener("click", (e) => {
     }
     return;
   }
+  if (btn.dataset.tattoo !== undefined && state.save) {
+    const c = state.save.roster[state.current];
+    const k = Number(btn.dataset.tattoo);
+    setTattoo(c, k, c.tattoos[k].value !== 1);
+    state.note = null;
+    render();
+    return;
+  }
+  if (btn.dataset.unlock !== undefined && state.save) {
+    const f = state.save.roster[state.current].unlocks[Number(btn.dataset.unlock)];
+    f.value = f.value ? 0 : 1;
+    state.note = null;
+    render();
+    return;
+  }
+  if ((btn.id === "unlock-all" || btn.id === "unlock-none") && state.save) {
+    const c = state.save.roster[state.current];
+    UNLOCK_SLOTS.forEach((u) => (c.unlocks[u].value = btn.id === "unlock-all" ? 1 : 0));
+    state.note = null;
+    render();
+    return;
+  }
   if (btn.dataset.undo !== undefined) {
     const it = findItem(Number(btn.dataset.undo));
     if (it) itemFields(it).forEach((f) => (f.value = f.original));
@@ -570,6 +633,19 @@ app.addEventListener("drop", (e) => {
   const f = e.dataTransfer?.files[0];
   if (f) void loadFile(f);
 });
+
+// Remember which skill lists are expanded across re-renders.
+app.addEventListener(
+  "toggle",
+  (e) => {
+    const d = e.target as HTMLElement;
+    if (!(d instanceof HTMLDetailsElement) || d.dataset.skills === undefined) return;
+    const i = Number(d.dataset.skills);
+    if (d.open) state.openSkills.add(i);
+    else state.openSkills.delete(i);
+  },
+  true,
+);
 
 // Escape or a click on the dimmed backdrop closes the review panel.
 window.addEventListener("keydown", (e) => {

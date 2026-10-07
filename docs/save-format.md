@@ -37,7 +37,7 @@ characters in this order: **Charlie, Lester, Tommy, Rex, Kelly**.
 | CharStats | stats |
 | float32 | hp |
 | string | `"sanestats"` marker |
-| bool × 32 | level-up unlocks |
+| bool × 32 | level-up skills bought (slots 2–31; 0 and 1 unused) |
 | int32 | skill points |
 | int32 + string × n | flags |
 | int32 + string × n | completed maps |
@@ -50,9 +50,9 @@ characters in this order: **Charlie, Lester, Tommy, Rex, Kelly**.
 
 | Type | Field |
 | --- | --- |
-| bool × 7 | tattoos |
-| int32 × 6 | special move slots |
-| int32 × 9 | magic |
+| bool × 7 | tattoos (tattoo *k* teaches magic id *k* + 1) |
+| int32 × 6 | magic ids equipped in the special-move slots (`-1` = empty) |
+| int32 × 9 | magic ids the character knows, in the order learned (`-1` = empty; 0 and 8 always present) |
 | int32 × 6 | stats: 0 Strength, 1 Defense, 2 Speed, 3 Anar-Chi, 4–5 unused |
 | int32 × 4 | equipped clothing (inventory slot, `-1` = none) |
 | bool × 4 | clothing visibility |
@@ -93,6 +93,19 @@ Starts with an `int32` type:
 
 Names and effects for every id, in EN/ES/PT-BR, are in `src/data/items.ts`
 (taken from the game's own localization).
+
+## Tattoos, magic and level-up skills
+
+Spell names per roster slot come from `Magic.charSpellCatalog` (8 spells each;
+spell 0 is always known). Turning a tattoo on mirrors `CharStats.AddTattoo`:
+set `tattoo[k]`, write `k + 1` into the first free magic entry and into the
+first free special-move slot. Turning it off clears those again.
+
+Level-up slot names depend on the character and follow
+`PlayerLevUp.GetIdxFromUnlock` plus the skill e-mails in `EmailBank`, e.g.
+slot 5 = Counter, 6/10/15/18 = Backpack I–IV, 8/12/14/17/19/20 = Relic slots,
+29–31 = Overdrive I–III. Gameplay code reads these flags directly. Both tables
+are in `src/data/skills.ts`.
 
 ## Special bonus types
 

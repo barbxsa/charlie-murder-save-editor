@@ -33,6 +33,7 @@ Available in **English**, **Español** and **Português (BR)**.
 - Edit **clothing**: Strength, Speed, Defense, Anar-Chi, level, rarity, price
   and all four special bonuses (Fire, Leech, Crit, Stun, Rapid Jabs! and 33 more).
 - Edit **food**: quantity and the stats it grants.
+- Toggle **tattoos** (each one teaches a spell, named for that character) and every **level-up skill** from the skill tree.
 - See every **relic** and **misc item** by name, with its effect, and change how many you carry.
 - **Review before download**: a list of every change ("War Gear · Strength 0 → 4,321"), plus an automatic `game.sav.bak` copy of the original.
 - Edit the **character sheet**: base stats, cash, followers, level and skill points.

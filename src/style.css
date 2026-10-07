@@ -1261,3 +1261,142 @@ body.locked {
   width: 16px;
   height: 16px;
 }
+
+/* ---------- tattoos & level-up skills ---------- */
+
+.togs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.tog {
+  all: unset;
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 12px;
+  color: var(--chalk);
+  transition: transform 0.12s;
+}
+
+.tog::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 2.5px dashed rgba(241, 236, 226, 0.4);
+  border-radius: 10px 6px 11px 7px;
+  filter: url(#paint-soft);
+}
+
+.tog:hover {
+  transform: rotate(-0.8deg);
+}
+
+.tog:focus-visible {
+  outline: 3px dashed var(--highlight);
+  outline-offset: 2px;
+}
+
+.tog.on {
+  color: var(--paper-ink);
+}
+
+.tog.on::before {
+  background: var(--paper);
+  border: 2.5px solid var(--paper-ink);
+  filter: url(#paint);
+}
+
+.tog.changed::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 10px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--highlight);
+  border: 2.5px solid var(--paper-ink);
+}
+
+.tog-box {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 2.5px solid currentColor;
+  border-radius: 6px 3px 7px 4px;
+}
+
+.tog.on .tog-box {
+  background: var(--blood);
+  border-color: var(--paper-ink);
+  color: #fff;
+}
+
+.tog-box .ico {
+  width: 18px;
+  height: 18px;
+  stroke-width: 3.4;
+}
+
+.tog-text b {
+  display: block;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.tog-text small {
+  display: block;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.skills {
+  margin-top: 8px;
+}
+
+.skills summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 32px 0 12px 4px;
+}
+
+.skills summary::-webkit-details-marker {
+  display: none;
+}
+
+.skills summary h2 {
+  font-size: 36px;
+  transform: rotate(-1.5deg);
+}
+
+.skills summary h2::after {
+  content: " +";
+  color: var(--blood);
+}
+
+.skills[open] summary h2::after {
+  content: " –";
+}
+
+.skills summary .c {
+  color: var(--chalk-dim);
+}
+
+.skills-actions {
+  margin: 4px 0 14px;
+  color: var(--chalk);
+}

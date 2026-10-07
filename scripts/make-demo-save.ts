@@ -12,6 +12,8 @@ const bytes = writeSave("demo-player", {
     equipped: [0, 1, 2, -1],
     cash: 1840.5,
     followers: 48210,
+    tattoos: [true, true, false, true],
+    unlocks: [2, 3, 4, 5, 6, 8, 9],
     levelPoints: 4,
     skillPoints: 1,
     flags: ["1_street", "1_bar0"],

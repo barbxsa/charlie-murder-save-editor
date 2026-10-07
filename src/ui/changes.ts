@@ -3,9 +3,10 @@
  * character and item, for the review step before download.
  */
 import { ITEM_TEXT } from "../data/items";
+import { SKILL_TEXT } from "../data/skills";
 import type { Locale } from "../i18n";
 import type { Messages } from "../i18n/en";
-import { isChanged, type Field, type InventoryItem, type RosterCharacter, type SaveFile } from "../save/format";
+import { isChanged, UNLOCK_SLOTS, type Field, type InventoryItem, type RosterCharacter, type SaveFile } from "../save/format";
 
 export interface ChangeLine {
   label: string;
@@ -102,6 +103,19 @@ export function collectChanges(save: SaveFile, t: Messages, locale: Locale): Cha
       ...line(c.skillPoints, t.sheet.skillPoints, locale),
     ];
     if (sheet.length) groups.push({ title: t.review.sheet, lines: sheet });
+    const onOff = (v: number) => (v ? t.review.on : t.review.off);
+    const spells = SKILL_TEXT[locale].spells[c.index] ?? [];
+    const tattoos = c.tattoos.flatMap((f, k) =>
+      isChanged(f)
+        ? [{ label: `${t.skills.tattoo.replace("{n}", String(k + 1))} · ${spells[k + 1]?.name ?? ""}`, from: onOff(f.original), to: onOff(f.value) }]
+        : [],
+    );
+    if (tattoos.length) groups.push({ title: t.skills.tattoos, lines: tattoos });
+    const skills = SKILL_TEXT[locale].unlocks[c.index % 5] ?? [];
+    const unlocks = UNLOCK_SLOTS.flatMap((u) =>
+      isChanged(c.unlocks[u]) ? [{ label: skills[u]?.name ?? `#${u}`, from: onOff(c.unlocks[u].original), to: onOff(c.unlocks[u].value) }] : [],
+    );
+    if (unlocks.length) groups.push({ title: t.skills.unlocks, lines: unlocks });
     for (const item of c.items) {
       const lines = itemLines(item, t, locale);
       if (lines.length) groups.push({ title: itemName(item, t, locale), lines });

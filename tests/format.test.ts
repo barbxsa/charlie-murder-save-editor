@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildSave, coerce, parseSave, SaveFormatError, type ClothingItem, type FoodItem } from "../src/save/format";
+import { buildSave, coerce, countChanges, parseSave, SaveFormatError, setTattoo, type ClothingItem, type FoodItem } from "../src/save/format";
 import { bandIndex, writeSave } from "./helpers/writer";
 
 const sample = () =>
@@ -116,5 +116,42 @@ describe.skipIf(!real || !existsSync(real))("real save (CM_SAVE)", () => {
   it("round-trips byte for byte", () => {
     const bytes = new Uint8Array(readFileSync(real!));
     expect(buildSave(parseSave(bytes)).bytes).toEqual(bytes);
+  });
+});
+
+describe("tattoos, magic and level-up skills", () => {
+  it("reads tattoos and unlocks", () => {
+    const save = parseSave(writeSave("t", { 0: { tattoos: [true, false, true], unlocks: [2, 3, 29] } }));
+    const c = save.roster[0];
+    expect(c.tattoos.map((f) => f.value)).toEqual([1, 0, 1, 0, 0, 0, 0]);
+    expect(c.magic.map((f) => f.value)).toEqual([0, 1, 3, -1, -1, -1, -1, -1, 8]);
+    expect(c.unlocks.map((f, i) => (f.value ? i : -1)).filter((i) => i >= 0)).toEqual([2, 3, 29]);
+  });
+
+  it("turning a tattoo on teaches its spell and fills a free slot, like the game", () => {
+    const bytes = writeSave("t", { 0: {} });
+    const save = parseSave(bytes);
+    const c = save.roster[0];
+    setTattoo(c, 3, true); // tattoo 4 -> magic id 4
+    expect(c.magic.map((f) => f.value)).toEqual([0, 4, -1, -1, -1, -1, -1, -1, 8]);
+    expect(c.specialSlots.map((f) => f.value)).toEqual([0, 4, -1, -1, 0, 8]);
+    expect(countChanges(save)).toBe(1); // magic/slot bookkeeping is not counted
+
+    const again = parseSave(buildSave(save).bytes).roster[0];
+    expect(again.tattoos[3].value).toBe(1);
+    expect(again.magic[1].value).toBe(4);
+
+    setTattoo(c, 3, false);
+    expect(c.magic.map((f) => f.value)).toEqual([0, -1, -1, -1, -1, -1, -1, -1, 8]);
+    expect(c.specialSlots.map((f) => f.value)).toEqual([0, -1, -1, -1, 0, 8]);
+    expect(buildSave(save).bytes).toEqual(bytes);
+  });
+
+  it("writes unlock flags as single bytes", () => {
+    const save = parseSave(writeSave("t", { 0: {} }));
+    save.roster[0].unlocks[20].value = 1;
+    const again = parseSave(buildSave(save).bytes);
+    expect(again.roster[0].unlocks[20].value).toBe(1);
+    expect(again.roster[0].unlocks[3].value).toBe(1);
   });
 });

@@ -21,7 +21,7 @@ export const SPECIAL_TYPE_COUNT = 37;
 /** Character order inside each band, from the game's character select screen. */
 export const CHARACTER_NAMES = ["Charlie", "Lester", "Tommy", "Rex", "Kelly"] as const;
 
-export type FieldKind = "i32" | "f32";
+export type FieldKind = "i32" | "f32" | "bool";
 
 /** An editable number stored at a fixed offset in the file. */
 export interface Field {
@@ -29,6 +29,11 @@ export interface Field {
   readonly kind: FieldKind;
   readonly original: number;
   value: number;
+  /**
+   * Kept in sync by the editor (e.g. the magic list follows the tattoos), so it
+   * is not counted or listed as a change on its own.
+   */
+  readonly derived?: boolean;
 }
 
 export interface SpecialBonus {
@@ -94,6 +99,14 @@ export interface RosterCharacter {
   /** Inventory slot of each equipped clothing piece, -1 when empty. */
   equipped: number[];
   hp: Field;
+  /** Seven tattoos; tattoo k teaches magic id k + 1. */
+  tattoos: Field[];
+  /** Magic ids the character knows (-1 = empty). 0 and 8 are always there. */
+  magic: Field[];
+  /** Magic ids equipped in the six special-move slots (-1 = empty). */
+  specialSlots: Field[];
+  /** Level-up skills bought in the skill tree (32 slots, 0 and 1 unused). */
+  unlocks: Field[];
   skillPoints: Field;
   levelPoints: Field;
   followers: Field;
@@ -177,10 +190,10 @@ export function parseSave(input: ArrayBuffer | Uint8Array): SaveFile {
   const bytes = input instanceof Uint8Array ? input.slice() : new Uint8Array(input.slice(0));
   const r = new Reader(bytes);
   const fields: Field[] = [];
-  const field = (kind: FieldKind): Field => {
+  const field = (kind: FieldKind, derived = false): Field => {
     const offset = r.pos;
-    const v = kind === "f32" ? r.f32() : r.i32();
-    const f: Field = { offset, kind, original: v, value: v };
+    const v = kind === "f32" ? r.f32() : kind === "bool" ? (r.u8() ? 1 : 0) : r.i32();
+    const f: Field = derived ? { offset, kind, original: v, value: v, derived } : { offset, kind, original: v, value: v };
     fields.push(f);
     return f;
   };
@@ -271,9 +284,9 @@ export function parseSave(input: ArrayBuffer | Uint8Array): SaveFile {
     }
 
     // CharStats
-    r.skip(7); // tattoos
-    r.skip(6 * 4); // special move slots
-    r.skip(9 * 4); // magic
+    const tattoos = Array.from({ length: 7 }, () => field("bool"));
+    const specialSlots = Array.from({ length: 6 }, () => field("i32", true));
+    const magic = Array.from({ length: 9 }, () => field("i32", true));
     const stats = [i32(), i32(), i32(), i32()] as [Field, Field, Field, Field];
     r.skip(2 * 4); // unused stat entries
     const equipped = [r.i32(), r.i32(), r.i32(), r.i32()];
@@ -285,7 +298,7 @@ export function parseSave(input: ArrayBuffer | Uint8Array): SaveFile {
     if (marker !== "sanestats") throw new SaveFormatError("bad_marker", { character: index + 1, offset: r.pos });
 
     // PlayerLevUp
-    r.skip(32);
+    const unlocks = Array.from({ length: 32 }, () => field("bool"));
     const skillPoints = i32();
 
     const flags: string[] = [];
@@ -315,6 +328,10 @@ export function parseSave(input: ArrayBuffer | Uint8Array): SaveFile {
       stats,
       equipped,
       hp,
+      tattoos,
+      magic,
+      specialSlots,
+      unlocks,
       skillPoints,
       levelPoints,
       followers,
@@ -343,13 +360,43 @@ export function buildSave(save: SaveFile): { bytes: Uint8Array; changes: number 
   for (const f of save.fields) {
     if (f.value === f.original) continue;
     if (f.kind === "f32") view.setFloat32(f.offset, f.value, true);
+    else if (f.kind === "bool") view.setUint8(f.offset, f.value ? 1 : 0);
     else view.setInt32(f.offset, f.value | 0, true);
-    changes++;
+    if (!f.derived) changes++;
   }
   return { bytes: out, changes };
 }
 
 export const isChanged = (f: Field) => f.value !== f.original;
+
+/** Number of user-visible changes (derived bookkeeping fields excluded). */
+export const countChanges = (save: SaveFile) => save.fields.filter((f) => !f.derived && isChanged(f)).length;
+
+/** Level-up slots the game actually uses. */
+export const UNLOCK_SLOTS = Array.from({ length: 30 }, (_, i) => i + 2);
+
+/**
+ * Turn a tattoo on or off the way the game's CharStats.AddTattoo /
+ * ClearTattoos do: the tattoo teaches magic id k + 1, which goes into the
+ * first free magic slot and, if there is room, the first free special slot.
+ */
+export function setTattoo(c: RosterCharacter, k: number, on: boolean): void {
+  const id = k + 1;
+  c.tattoos[k].value = on ? 1 : 0;
+  if (on) {
+    if (!c.magic.some((f) => f.value === id)) {
+      const free = c.magic.find((f) => f.value === -1);
+      if (free) free.value = id;
+    }
+    if (!c.specialSlots.some((f) => f.value === id)) {
+      const slot = c.specialSlots.find((f) => f.value === -1);
+      if (slot) slot.value = id;
+    }
+  } else {
+    c.magic.forEach((f) => f.value === id && (f.value = -1));
+    c.specialSlots.forEach((f) => f.value === id && (f.value = -1));
+  }
+}
 
 export function itemFields(item: InventoryItem): Field[] {
   switch (item.kind) {
@@ -372,12 +419,22 @@ export function itemFields(item: InventoryItem): Field[] {
 }
 
 export function characterFields(c: RosterCharacter): Field[] {
-  return [...c.stats, c.cash, c.followers, c.levelPoints, c.skillPoints, ...c.items.flatMap(itemFields)];
+  return [
+    ...c.stats,
+    c.cash,
+    c.followers,
+    c.levelPoints,
+    c.skillPoints,
+    ...c.tattoos,
+    ...c.unlocks,
+    ...c.items.flatMap(itemFields),
+  ];
 }
 
 /** Clamp and normalize a value before it is stored in a field. */
 export function coerce(f: Field, raw: number, min = 0, max = 2147483647): number {
   if (!Number.isFinite(raw)) return f.original;
+  if (f.kind === "bool") return raw ? 1 : 0;
   if (f.kind === "i32") return Math.max(min, Math.min(max, Math.round(raw)));
   const v = Math.fround(Math.max(min, Math.min(max, raw)));
   return Math.abs(v - f.original) < 0.005 ? f.original : v;
