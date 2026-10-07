@@ -75,7 +75,11 @@ export const ptBR: Messages = {
     undo: "Desfazer",
     relics: { one: "1 relíquia", other: "{n} relíquias" },
     misc: { one: "1 item diverso", other: "{n} itens diversos" },
-    otherNote: "Relíquias e itens diversos ficam como estão. O editor mexe em roupas, comidas e na ficha do personagem.",
+    otherNote: "Dá pra mudar quantos de cada um o personagem carrega.",
+    relicsTitle: "Relíquias",
+    miscTitle: "Itens diversos",
+    unknownRelic: "Relíquia desconhecida #{id}",
+    unknownMisc: "Item desconhecido #{id}",
     clothingTypes: ["Camisa", "Cabeça", "Luvas", "Acessório"],
   },
   stats: {

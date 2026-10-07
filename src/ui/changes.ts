@@ -2,6 +2,8 @@
  * Turns the edited fields of a save into a human-readable list, grouped by
  * character and item, for the review step before download.
  */
+import { ITEM_TEXT } from "../data/items";
+import type { Locale } from "../i18n";
 import type { Messages } from "../i18n/en";
 import { isChanged, type Field, type InventoryItem, type RosterCharacter, type SaveFile } from "../save/format";
 
@@ -73,11 +75,19 @@ function itemLines(item: InventoryItem, t: Messages, locale: string): ChangeLine
   }
 }
 
-function itemTitle(item: InventoryItem, fallback: string): string {
-  return item.kind === "clothing" || item.kind === "food" ? item.name : fallback;
+export function itemName(item: InventoryItem, t: Messages, locale: Locale): string {
+  switch (item.kind) {
+    case "clothing":
+    case "food":
+      return item.name;
+    case "relic":
+      return ITEM_TEXT[locale].relics[item.relicId]?.name ?? t.items.unknownRelic.replace("{id}", String(item.relicId));
+    case "misc":
+      return ITEM_TEXT[locale].misc[item.defId]?.name ?? t.items.unknownMisc.replace("{id}", String(item.defId));
+  }
 }
 
-export function collectChanges(save: SaveFile, t: Messages, locale: string): CharacterChanges[] {
+export function collectChanges(save: SaveFile, t: Messages, locale: Locale): CharacterChanges[] {
   const result: CharacterChanges[] = [];
   for (const c of save.roster) {
     const groups: ChangeGroup[] = [];
@@ -94,7 +104,7 @@ export function collectChanges(save: SaveFile, t: Messages, locale: string): Cha
     if (sheet.length) groups.push({ title: t.review.sheet, lines: sheet });
     for (const item of c.items) {
       const lines = itemLines(item, t, locale);
-      if (lines.length) groups.push({ title: itemTitle(item, t.items.other), lines });
+      if (lines.length) groups.push({ title: itemName(item, t, locale), lines });
     }
     if (groups.length) result.push({ character: c, groups });
   }

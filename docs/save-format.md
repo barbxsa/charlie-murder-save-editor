@@ -83,6 +83,17 @@ Starts with an `int32` type:
 `int32 anarchi`, `string description`, `int32 hp`, `int32 mp`,
 `float32 price`, `int32 flags`.
 
+## Relic and misc item ids
+
+- **Relic id** (`InvLoot` type 3) is the index into `RelicMgr.relicDesc`
+  (55 relics, 0 = Kitty Chain … 41 = Anarchy Pin … 54 = Bag of Oregano).
+- **Misc item def id** (`InvLoot` type 4) is the index into
+  `MiscItemCatalog.itemDef` (22 items: 0 = Prop, 1–10 brewing ingredients,
+  11–21 dyes).
+
+Names and effects for every id, in EN/ES/PT-BR, are in `src/data/items.ts`
+(taken from the game's own localization).
+
 ## Special bonus types
 
 Index into the game's bonus name table (`i_*` strings in the localization):

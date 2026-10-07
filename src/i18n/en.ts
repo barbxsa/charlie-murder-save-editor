@@ -80,7 +80,11 @@ export const en = {
     undo: "Undo",
     relics: { one: "1 relic", other: "{n} relics" },
     misc: { one: "1 misc item", other: "{n} misc items" },
-    otherNote: "Relics and misc items are left as they are. The editor changes clothes, food and the character sheet.",
+    otherNote: "You can change how many of each one the character carries.",
+    relicsTitle: "Relics",
+    miscTitle: "Misc items",
+    unknownRelic: "Unknown relic #{id}",
+    unknownMisc: "Unknown item #{id}",
     clothingTypes: ["Shirt", "Head", "Gloves", "Accessory"],
   },
   stats: {

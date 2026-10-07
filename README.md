@@ -33,6 +33,8 @@ Available in **English**, **Español** and **Português (BR)**.
 - Edit **clothing**: Strength, Speed, Defense, Anar-Chi, level, rarity, price
   and all four special bonuses (Fire, Leech, Crit, Stun, Rapid Jabs! and 33 more).
 - Edit **food**: quantity and the stats it grants.
+- See every **relic** and **misc item** by name, with its effect, and change how many you carry.
+- **Review before download**: a list of every change ("War Gear · Strength 0 → 4,321"), plus an automatic `game.sav.bak` copy of the original.
 - Edit the **character sheet**: base stats, cash, followers, level and skill points.
 - One-click **Max out** for a clothing piece, plus per-item undo.
 - Works on all 20 roster slots (4 bands × Charlie, Lester, Tommy, Rex, Kelly).

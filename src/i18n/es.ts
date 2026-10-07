@@ -75,7 +75,11 @@ export const es: Messages = {
     undo: "Deshacer",
     relics: { one: "1 reliquia", other: "{n} reliquias" },
     misc: { one: "1 objeto vario", other: "{n} objetos varios" },
-    otherNote: "Las reliquias y los objetos varios se quedan como están. El editor cambia la ropa, la comida y la ficha del personaje.",
+    otherNote: "Puedes cambiar cuántos de cada uno lleva el personaje.",
+    relicsTitle: "Reliquias",
+    miscTitle: "Objetos varios",
+    unknownRelic: "Reliquia desconocida #{id}",
+    unknownMisc: "Objeto desconocido #{id}",
     clothingTypes: ["Camiseta", "Cabeza", "Guantes", "Accesorio"],
   },
   stats: {

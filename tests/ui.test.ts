@@ -51,3 +51,16 @@ describe("collectChanges", () => {
     ]);
   });
 });
+
+describe("relic and misc item names", () => {
+  it("covers every id the game defines, in every locale", async () => {
+    const { ITEM_TEXT } = await import("../src/data/items");
+    for (const loc of Object.values(ITEM_TEXT)) {
+      expect(loc.relics).toHaveLength(55);
+      expect(loc.misc).toHaveLength(22);
+      expect(loc.relics.every((r) => r.name.length > 0)).toBe(true);
+    }
+    expect(ITEM_TEXT.en.relics[41].name).toBe("Anarchy Pin");
+    expect(ITEM_TEXT.en.misc[19]).toEqual({ name: "Mimic Blood", effect: "Swap stats with equipped clothes" });
+  });
+});

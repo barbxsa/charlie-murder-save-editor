@@ -15,13 +15,16 @@ import {
   type ClothingItem,
   type Field,
   type FoodItem,
+  type MiscItem,
+  type RelicItem,
   type RosterCharacter,
   type SaveFile,
 } from "./save/format";
 import { icons, star } from "./ui/icons";
 import { AUTHOR_NAME, AUTHOR_URL, REPO_URL } from "./config";
 import { fmt, formatNumber, getLocale, initLocale, LOCALES, m, onLocaleChange, plural, setLocale, type Locale } from "./i18n";
-import { collectChanges } from "./ui/changes";
+import { collectChanges, itemName } from "./ui/changes";
+import { ITEM_TEXT } from "./data/items";
 
 const SAVE_PATH = "%APPDATA%\\CharlieMurder\\game.sav";
 
@@ -238,6 +241,15 @@ function foodCard(it: FoodItem): string {
   </article>`;
 }
 
+function miniCard(it: RelicItem | MiscItem): string {
+  const t = m();
+  const text = it.kind === "relic" ? ITEM_TEXT[getLocale()].relics[it.relicId] : ITEM_TEXT[getLocale()].misc[it.defId];
+  return `<article class="mini paper${isChanged(it.count) ? " dirty" : ""}">
+    <div class="mini-text"><b>${esc(itemName(it, t, getLocale()))}</b>${text?.effect ? `<small>${esc(text.effect)}</small>` : ""}</div>
+    ${numberInput(it.count, t.items.quantity, { min: 1, max: 99 })}
+  </article>`;
+}
+
 function characterView(c: RosterCharacter): string {
   const t = m();
   const clothes = c.items
@@ -272,10 +284,14 @@ function characterView(c: RosterCharacter): string {
     html += `<div class="section-title"><h2>${esc(t.items.food)}</h2><span class="c">${esc(plural(t.items.count, foods.length))}</span></div>`;
     html += `<div class="items">${foods.map(foodCard).join("")}</div>`;
   }
-  if (relics || misc) {
-    html += `<div class="section-title"><h2>${esc(t.items.other)}</h2></div>
-      <div class="others"><span class="tag paper">${esc(plural(t.items.relics, relics))}</span><span class="tag paper">${esc(plural(t.items.misc, misc))}</span></div>
+  const others = c.items.filter((i): i is RelicItem | MiscItem => i.kind === "relic" || i.kind === "misc");
+  if (others.length) {
+    const relicItems = others.filter((i) => i.kind === "relic");
+    const miscItems = others.filter((i) => i.kind === "misc");
+    html += `<div class="section-title"><h2>${esc(t.items.other)}</h2><span class="c">${esc(plural(t.items.relics, relics))} · ${esc(plural(t.items.misc, misc))}</span></div>
       <p class="note">${esc(t.items.otherNote)}</p>`;
+    if (relicItems.length) html += `<h3 class="mini-title">${esc(t.items.relicsTitle)}</h3><div class="minis">${relicItems.map(miniCard).join("")}</div>`;
+    if (miscItems.length) html += `<h3 class="mini-title">${esc(t.items.miscTitle)}</h3><div class="minis">${miscItems.map(miniCard).join("")}</div>`;
   }
   return html;
 }
