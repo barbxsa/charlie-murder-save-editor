@@ -42,7 +42,7 @@ export function getLocale(): Locale {
 export function setLocale(locale: Locale): void {
   if (!isLocale(locale) || locale === current) return;
   current = locale;
-  document.documentElement.lang = locale;
+  if (typeof document !== "undefined") document.documentElement.lang = locale;
   try {
     localStorage.setItem(STORAGE_KEY, locale);
   } catch {
@@ -70,3 +70,18 @@ export function formatNumber(n: number): string {
 }
 
 export { MESSAGES };
+
+/** A message with singular and plural forms. */
+export interface Plural {
+  readonly one: string;
+  readonly other: string;
+}
+
+/**
+ * Pick the plural form for `n` and fill placeholders (`{n}` included).
+ * Zero always uses the plural form ("0 items"), which reads naturally in EN, ES and PT.
+ */
+export function plural(p: Plural, n: number, vars: Record<string, string | number> = {}): string {
+  const form = n !== 0 && new Intl.PluralRules(current).select(n) === "one" ? p.one : p.other;
+  return fmt(form, { n: formatNumber(n), ...vars });
+}

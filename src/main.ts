@@ -20,13 +20,14 @@ import {
 } from "./save/format";
 import { icons, star } from "./ui/icons";
 import { AUTHOR_NAME, AUTHOR_URL, REPO_URL } from "./config";
-import { fmt, formatNumber, getLocale, initLocale, LOCALES, m, onLocaleChange, setLocale, type Locale } from "./i18n";
+import { fmt, formatNumber, getLocale, initLocale, LOCALES, m, onLocaleChange, plural, setLocale, type Locale } from "./i18n";
+import { collectChanges } from "./ui/changes";
 
 const SAVE_PATH = "%APPDATA%\\CharlieMurder\\game.sav";
 
 type Note =
   | { kind: "boosted" }
-  | { kind: "saved"; n: number }
+  | { kind: "saved"; n: number; backup: boolean }
   | { kind: "verify"; error: unknown };
 
 interface State {
@@ -38,9 +39,13 @@ interface State {
   error: unknown;
   note: Note | null;
   confirmOther: boolean;
+  /** The review panel shown before downloading. */
+  review: boolean;
+  /** Also download the untouched original as game.sav.bak. */
+  backup: boolean;
 }
 
-const state: State = { save: null, fileName: "game.sav", current: 0, showAll: false, error: null, note: null, confirmOther: false };
+const state: State = { save: null, fileName: "game.sav", current: 0, showAll: false, error: null, note: null, confirmOther: false, review: false, backup: true };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const fieldRegistry = new Map<string, { field: Field; min: number; max: number }>();
@@ -175,7 +180,7 @@ function rosterView(save: SaveFile): string {
     const dot = anyChanged(characterFields(c)) ? `<span class="d" title="${esc(t.roster.changed)}"></span>` : "<span></span>";
     html += `<button class="char" type="button" data-char="${c.index}" aria-current="${c.index === state.current}" style="--char:${charColor(c)}">
       <span class="n">${esc(c.name)}</span>${dot}
-      <span class="m">${esc(fmt(t.roster.summary, { clothes, cash: formatNumber(Math.round(c.cash.value)) }))}</span>
+      <span class="m">${esc(fmt(t.roster.summary, { clothes: plural(t.roster.clothes, clothes), cash: formatNumber(Math.round(c.cash.value)) }))}</span>
     </button>`;
   }
   html += `<label class="toggle"><input type="checkbox" id="showAll"${state.showAll ? " checked" : ""}> ${esc(t.roster.showAll)}</label>`;
@@ -259,17 +264,17 @@ function characterView(c: RosterCharacter): string {
     </div>
   </div>`;
 
-  html += `<div class="section-title"><h2>${esc(t.items.clothes)}</h2><span class="c">${esc(fmt(t.items.count, { n: clothes.length }))}</span></div>`;
+  html += `<div class="section-title"><h2>${esc(t.items.clothes)}</h2><span class="c">${esc(plural(t.items.count, clothes.length))}</span></div>`;
   html += clothes.length
     ? `<div class="items">${clothes.map((it) => clothingCard(it, c)).join("")}</div>`
     : `<p class="note">${esc(t.items.noClothes)}</p>`;
   if (foods.length) {
-    html += `<div class="section-title"><h2>${esc(t.items.food)}</h2><span class="c">${esc(fmt(t.items.count, { n: foods.length }))}</span></div>`;
+    html += `<div class="section-title"><h2>${esc(t.items.food)}</h2><span class="c">${esc(plural(t.items.count, foods.length))}</span></div>`;
     html += `<div class="items">${foods.map(foodCard).join("")}</div>`;
   }
   if (relics || misc) {
     html += `<div class="section-title"><h2>${esc(t.items.other)}</h2></div>
-      <div class="others"><span class="tag paper">${esc(fmt(t.items.relics, { n: relics }))}</span><span class="tag paper">${esc(fmt(t.items.misc, { n: misc }))}</span></div>
+      <div class="others"><span class="tag paper">${esc(plural(t.items.relics, relics))}</span><span class="tag paper">${esc(plural(t.items.misc, misc))}</span></div>
       <p class="note">${esc(t.items.otherNote)}</p>`;
   }
   return html;
@@ -279,12 +284,49 @@ function bar(): string {
   if (!state.save) return "";
   const t = m();
   const n = state.save.fields.filter(isChanged).length;
-  const msg = state.note ? noteText(state.note) : n ? fmt(t.bar.some, { n }) : t.bar.none;
+  const msg = state.note ? noteText(state.note) : n ? plural(t.bar.some, n) : t.bar.none;
   return `<div class="bar">
     <span class="msg" role="status">${esc(msg)}</span>
     ${bubble({ id: "reset", color: "red", icon: icons.discard, label: t.bar.discard, disabled: !n })}
     ${bubble({ id: "other", color: "blue", icon: icons.open, label: state.confirmOther ? t.bar.confirmOther : t.bar.openOther })}
     ${bubble({ id: "download", color: "green", icon: icons.download, label: t.bar.download, disabled: !n })}
+  </div>`;
+}
+
+function reviewView(save: SaveFile): string {
+  const t = m();
+  const groups = collectChanges(save, t, getLocale());
+  const total = save.fields.filter(isChanged).length;
+  const body = groups
+    .map(
+      (cc) => `<section class="rv-char" style="--char:${charColor(cc.character)}">
+        <h3><span class="name-swatch">${esc(fmt(t.review.character, { name: cc.character.name, band: cc.character.band }))}</span></h3>
+        ${cc.groups
+          .map(
+            (g) => `<div class="rv-group"><h4>${esc(g.title)}</h4><ul>${g.lines
+              .map((l) => `<li><span class="rv-label">${esc(l.label)}</span><span class="rv-from">${esc(l.from)}</span><span class="rv-arrow" aria-hidden="true">→</span><span class="rv-to">${esc(l.to)}</span></li>`)
+              .join("")}</ul></div>`,
+          )
+          .join("")}
+      </section>`,
+    )
+    .join("");
+  return `<div class="overlay" id="overlay">
+    <div class="review paper" role="dialog" aria-modal="true" aria-labelledby="rv-title">
+      <div class="rv-head">
+        <h2 id="rv-title">${esc(t.review.title)}</h2>
+        <span class="rv-total">${esc(plural(t.review.total, total))}</span>
+      </div>
+      <p class="rv-intro">${esc(t.review.intro)}</p>
+      <div class="rv-list">${body}</div>
+      <label class="rv-backup"><input type="checkbox" id="backup"${state.backup ? " checked" : ""}>
+        <span><b>${esc(t.review.backup)}</b><small>${esc(t.review.backupHint)}</small><small>${esc(t.review.blocked)}</small></span>
+      </label>
+      <div class="rv-actions">
+        ${bubble({ id: "rv-back", color: "blue", icon: icons.undo, label: t.review.back })}
+        ${bubble({ id: "rv-confirm", color: "green", icon: icons.download, label: t.review.confirm })}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -294,7 +336,7 @@ function noteText(note: Note): string {
     case "boosted":
       return t.bar.boosted;
     case "saved":
-      return fmt(t.bar.saved, { n: note.n });
+      return plural(note.backup ? t.bar.savedBackup : t.bar.saved, note.n);
     case "verify":
       return fmt(t.errors.verify, { message: errorMessage(note.error) });
   }
@@ -320,7 +362,8 @@ function render(): void {
   const body = s
     ? `<section class="app">${rosterView(s)}<div>${characterView(s.roster[state.current])}</div></section>`
     : startView();
-  app.innerHTML = `<div class="wrap">${header()}${body}${footer()}</div>${bar()}`;
+  app.innerHTML = `<div class="wrap">${header()}${body}${footer()}</div>${bar()}${s && state.review ? reviewView(s) : ""}`;
+  document.body.classList.toggle("locked", Boolean(s && state.review));
   if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
 }
 
@@ -347,6 +390,17 @@ async function loadFile(file: File): Promise<void> {
   render();
 }
 
+function saveBlob(bytes: Uint8Array, name: string): void {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/octet-stream" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 function download(): void {
   const s = state.save;
   if (!s) return;
@@ -354,19 +408,16 @@ function download(): void {
   try {
     parseSave(bytes); // never hand out a file the editor itself can't read back
   } catch (e) {
+    state.review = false;
     state.note = { kind: "verify", error: e };
     render();
     return;
   }
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/octet-stream" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "game.sav";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  state.note = { kind: "saved", n: changes };
+  saveBlob(bytes, "game.sav");
+  // A short gap keeps browsers from merging or dropping the second download.
+  if (state.backup) setTimeout(() => saveBlob(s.bytes, "game.sav.bak"), 600);
+  state.review = false;
+  state.note = { kind: "saved", n: changes, backup: state.backup };
   render();
 }
 
@@ -384,6 +435,10 @@ app.addEventListener("change", (e) => {
     const f = el.files?.[0];
     if (f) void loadFile(f);
     el.value = "";
+    return;
+  }
+  if (el.id === "backup" && el instanceof HTMLInputElement) {
+    state.backup = el.checked;
     return;
   }
   if (el.id === "showAll" && el instanceof HTMLInputElement) {
@@ -451,6 +506,16 @@ app.addEventListener("click", (e) => {
       render();
       break;
     case "download":
+      state.review = true;
+      render();
+      document.getElementById("rv-confirm")?.focus();
+      break;
+    case "rv-back":
+      state.review = false;
+      render();
+      document.getElementById("download")?.focus();
+      break;
+    case "rv-confirm":
       download();
       break;
     case "other": {
@@ -488,6 +553,20 @@ app.addEventListener("drop", (e) => {
   e.preventDefault();
   const f = e.dataTransfer?.files[0];
   if (f) void loadFile(f);
+});
+
+// Escape or a click on the dimmed backdrop closes the review panel.
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.review) {
+    state.review = false;
+    render();
+  }
+});
+app.addEventListener("mousedown", (e) => {
+  if ((e.target as HTMLElement).id === "overlay") {
+    state.review = false;
+    render();
+  }
 });
 
 // Leaving with unsaved edits asks for confirmation.
