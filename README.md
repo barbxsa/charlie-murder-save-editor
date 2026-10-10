@@ -5,7 +5,7 @@ your `game.sav`, change clothing stats and special bonuses, food, and each
 character's sheet, then download the edited file. No install and no upload:
 the file never leaves your browser.
 
-Available in **English**, **Español** and **Português (BR)**.
+Available in **English**, **Español** and **Português(PT-BR)**.
 
 **[Open the editor →](https://barbxsa.com.br/charlie-murder-save-editor/)**
 
